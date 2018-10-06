@@ -1,0 +1,112 @@
+#!/usr/bin/python3
+import click
+import docker
+import sys
+import time
+import requests
+
+from subprocess import call
+
+dclient = docker.from_env()
+
+
+@click.group()
+def cli():
+    """Command line interface."""
+    pass
+
+
+@cli.command()
+@click.argument('yml', type=click.Path(exists=True))
+def start(yml):
+    """ Run server with a given yml config file.
+    Utilizes docker-compose.
+    """
+
+    cmd = ['docker-compose', '-f', 'docker-compose.yml',
+                             '-f', yml, 'up', '-d',
+                             '--build', '--force-recreate', '-t 1']
+
+    returncode = call(cmd)
+    returncode = call(['docker', 'ps'])
+
+
+@cli.command()
+@click.option('-f', '--force', is_flag=True)
+def stop(force):
+    """ Stop all running docker containers. """
+    for container in dclient.containers.list():
+        if force:
+            container.kill()
+        else:
+            container.stop()
+    returncode = call(['docker', 'ps'])
+
+
+@cli.command()
+@click.argument('argument', required=False)
+def test(argument=None):
+    """ Run unit tests. """
+    command = ['docker', 'exec', '-it',
+               'ats_web',
+               'python3', '/code/backend/backend/manage.py',
+               'test']
+    if argument:
+        command.append(argument)
+    returncode = call(command)
+    click.echo('Unit tests ran.')
+
+
+@cli.command()
+def makemigrations():
+    """ Make django migrations. """
+    returncode = call(['docker',
+                       'exec',
+                       '-it',
+                       'ats_web',
+                       'python3',
+                       '/code/backend/backend/manage.py',
+                       'makemigrations'])
+
+
+@cli.command()
+def migrate():
+    """ Run django migrations. """
+    returncode = call(['docker', 'exec', '-it',
+                       'ats_web',
+                       'python3', '/code/backend/backend/manage.py', 'migrate'])
+
+
+@cli.command()
+def createSuperUser():
+    """ Create a django super user """
+    returncode = call(['docker', 'exec', '-it',
+                       'ats_web',
+                       'python3', '/code/backend/backend/manage.py',
+                       'createsuperuser'])
+
+@cli.command()
+def shell():
+    """ Django shell """
+    returncode = call(['docker', 'exec', '-it',
+                       'ats_web',
+                       'python3', '/code/backend/backend/manage.py',
+                       'shell'])
+
+@cli.command()
+def list():
+    """ List running docker containers. """
+    returncode = call(['docker', 'ps'])
+
+
+@cli.command()
+@click.argument('container')
+def bash(container):
+    """Connect to a docker container bash."""
+    containerobj = dclient.containers.get(container)
+    click.echo('Connected to ' + containerobj.name)
+    click.echo('Type "exit" to return.')
+    returncode = call(['docker', 'exec', '-it', container, '/bin/bash'])
+
+if __name__ == '__main__':
+    cli()
