@@ -33,4 +33,4 @@ services:
       POSTGRES_HOST: homesite_db
       PYTHONIOENCODING: UTF-8
     ports:
-      - "80:80"
+      - "6780:80"
